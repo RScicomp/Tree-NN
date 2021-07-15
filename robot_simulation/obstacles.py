@@ -2,7 +2,7 @@ import pygame
 
 # could add additional feature: [click and drag / click and click again] to create new obstacles
 walls = [((0,0),(1000,0)),((0,0),(0,800)),((1000,800),(0,800)),((1000,0),(1000,800))]
-obst = [((0,0),(0,0))] #{((100,100),(200,50)),((100,300),(150,360)),((400,600),(350,560))} #,((250,460),(500,700))
+obst = [((0,0),(0,0))]
 for x in walls:
     obst.append(x)
 

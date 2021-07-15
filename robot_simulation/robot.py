@@ -3,6 +3,7 @@ import pygame
 import lines
 from obstacles import obst
 
+
 # calculate x,y changes to go "forward" given the absolute rotation of the robot
 def forward(abs_rotation, x, y, speed):
     y -= speed * math.cos(math.radians(abs_rotation))

@@ -1,11 +1,15 @@
 import numpy as np
 import os
+
+import pandas as pd
 import pygame
 from obstacles import draw_obstacles, obst
 import robot
 import lines
 import math
 global color
+# training variable - if training, we are controlling the robot
+training = False
 
 # initialization
 pygame.init()
@@ -43,13 +47,103 @@ new_point_1 = ()
 new_point_2 = ()
 # ------------------------------
 
+import csv
+
+# special loop made for human-NN training
+def control():
+    # initialize global variables
+    global signal_array
+    global training
+    global robot_x
+    global robot_y
+    global robot_rotation
+    global robot_speed
+
+    global ground_truth_action
+    global write
+    write = False
+    # initialize other variables
+    drawing_pause = False
+    control = True
+
+    columns = ["sensor_signals","action"]
+
+
+    # training loop
+    while control:
+
+        for event in pygame.event.get():
+            # control quiting command -------------------------------------------
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+
+            # control drawing ---------------------------------------------------
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if drawing_pause is False:
+                    new_point_1 = pygame.mouse.get_pos()
+                    drawing_pause = True
+                else:
+                    new_point_2 = pygame.mouse.get_pos()
+                    obst.append((new_point_1, new_point_2))
+                    drawing_pause = False
+                    draw_obstacles(screen)
+                    pygame.display.flip()
+
+            # control keys -------------------------------------------------------
+            if event.type == pygame.KEYDOWN:
+
+                # ending training loop -------------------------------------------
+                if event.key == pygame.K_t:
+                    training = False
+                    control = False
+
+                # controlling speed ----------------------------------------------
+                if event.key == pygame.K_UP:
+                    robot_speed += 3
+                if event.key == pygame.K_DOWN:
+                    robot_speed -= 3
+                    if robot_speed < 0.5:
+                        robot_speed = 0.5
+
+                # selecting an action --------------------------------------------
+                if event.key == pygame.K_LEFT:
+                    ground_truth_action = -1
+                    robot_rotation += 3
+                    write = True
+                elif event.key == pygame.K_RIGHT:
+                    ground_truth_action = 1
+                    robot_rotation -= 3
+                    write = True
+                elif event.key == pygame.K_SPACE:
+                    ground_truth_action = 0
+                    robot_x, robot_y = robot.forward(robot_rotation, robot_x, robot_y, robot_speed)
+                    write = True
+                # training code here ---------------------------------------------
+                if (write is True) and (signal_array !=[0,0,0,0,0,0,0]) and signal_array != []:
+                    entry = np.array(signal_array)
+                    entry = np.array([entry,ground_truth_action])
+                    # df = pd.DataFrame(entry.reshape(-1,len(entry)),columns=columns)
+                    # print(df)
+                    # df.to_csv("dataset.csv",mode="a",header=False)
+                    with open('dataset.csv', 'a') as data_file:
+                        data_writer = csv.writer(data_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+
+                        data_writer.writerow(entry)
+                # display --------------------------------------------------------
+                screen.fill((150, 242, 240))
+                draw_obstacles(screen)
+                start, end = draw_robot(robot_rotation, robot_x, robot_y, robot_image, screen, robot_sensor_range)
+                signal_array = robot.sensor_detection_efficient(robot_rotation, robot_x, robot_y, screen, robot_sensor_range)
+                pygame.display.flip()
+                print(signal_array)
+
 
 def paused(screen):
     pause = True
     drawing_pause = False
 
     while pause:
-
         for event in pygame.event.get():
 
             if event.type == pygame.QUIT:
@@ -87,6 +181,7 @@ def draw_robot(rotation, x, y, robot_image, screen, sensor_range):
     return (x, y), (x_end, y_end)
 
 
+
 # game loop
 running = True
 while running:
@@ -94,15 +189,31 @@ while running:
     # displays the content
     pygame.display.flip()
 
+    # next action place holder
+    cmd = 0
+
     # controlling events --------------------------
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
-        # controlling pause
+        # controlling pause -------------------
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_p :
+            if event.key == pygame.K_p:
                 paused(screen)
+
+            # controlling speed
+            if event.key == pygame.K_UP:
+                robot_speed += 3
+
+            if event.key == pygame.K_DOWN:
+                robot_speed -= 3
+                if robot_speed < 0.5:
+                    robot_speed = 0.5
+        # to enable/disable training ----------
+            if event.key == pygame.K_t:
+                training = not training
+
 
         # controlling drawing new obstacles
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -115,7 +226,11 @@ while running:
                 drawing = False
         # ------------------------------------------
 
-    # painting background
+    # training functions ---------------------------
+    if training:
+        cmd = control()
+
+    # painting background---------------------------
     screen.fill((150, 242, 240))
     # drawing obstacles
     draw_obstacles(screen)
@@ -125,8 +240,13 @@ while running:
     start, end = draw_robot(robot_rotation, robot_x, robot_y, robot_image, screen, robot_sensor_range)
 
     # if sensor detects anything, turn left
-    signal_array = robot.sensor_detection_efficient(robot_rotation, robot_x, robot_y, screen, robot_sensor_range)
+    try:
+        signal_array = robot.sensor_detection_efficient(robot_rotation, robot_x, robot_y, screen, robot_sensor_range)
 
+    # if robot goes out of bound, return it to middle
+    except IndexError:
+        robot_x = 500
+        robot_y = 400
     print(signal_array)
 
     # TODO: neural network tree goes here, pass signal array to the network
@@ -136,7 +256,10 @@ while running:
 
     # updating x y value of robot to make it move
 
+
+
     robot_x, robot_y = robot.forward(robot_rotation, robot_x, robot_y, robot_speed)
+
 
     # if robot_rotation > -90:
     # robot_rotation -= 0.05
