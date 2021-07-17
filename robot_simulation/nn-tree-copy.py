@@ -47,7 +47,7 @@ sensor_front_data_decision
 # wheel_rf_data = generate_sensor_data(evaluation=measure_wheel)
 # wheel_lb_data = generate_sensor_data(evaluation=measure_wheel)
 # wheel_rb_data = generate_sensor_data(evaluation=measure_wheel)
-from keras.utils.np_utils import to_categorical
+# from keras.utils.np_utils import to_categorical
 
 class NeuralNet():
     def __init__(self,x,y,output,name):
@@ -130,6 +130,7 @@ class MainNet(NeuralNet):
 
 
     def train(self):
+        print(self.X.shape,self.y.shape)
         self.model.fit(self.X,self.y,epochs=30,batch_size=32)
 
     # def predict(self,test):
@@ -153,15 +154,14 @@ class TreeNet():
                 model.X=sensor_data[0]
                 model.y=sensor_data[1]
                 model.train()
-            predictions = model.predict(model.X)
+            predictions = model.predict(sensor_data[0])
             all_predictions.append(predictions)
         # all_predictions
         training_data=np.concatenate((all_predictions),axis=1)
-        # print(training_data)
+        print(training_data.shape)
         self.mainnet.X = training_data
         self.mainnet.y = y
         print("Training mainnet...")
-        print(training_data)
         self.mainnet.train()
         # return(training_data)#training_data)
 
@@ -202,7 +202,7 @@ class TreeNet():
             all_predictions.append(predictions)
         # all_predictions
         test_data=np.concatenate((all_predictions),axis=1)
-        print(test_data)
+        # print(test_data)
         # print(training_data)
         predictions=self.mainnet.cat_predict(test_data)
         return(predictions)
@@ -245,6 +245,7 @@ from ast import literal_eval
 from data_process import get_float_array
 
 df = pd.read_csv("dataset.csv")
+
 x0 = df[['s0']].values
 x1 = df[['s1']].values
 x2 = df[['s2']].values
@@ -253,33 +254,37 @@ x4 = df[['s4']].values
 x5 = df[['s5']].values
 x6 = df[['s6']].values
 
-y0 = np.array([[near_sensor(i)] for i in x0])
-y1 = np.array([[near_sensor(i)] for i in x1])
-y2 = np.array([[near_sensor(i)] for i in x2])
-y3 = np.array([[near_sensor(i)] for i in x3])
-y4 = np.array([[near_sensor(i)] for i in x4])
-y5 = np.array([[near_sensor(i)] for i in x5])
-y6 = np.array([[near_sensor(i)] for i in x6])
+y0 = [near_sensor(i) for i in x0]
+y1 = [near_sensor(i) for i in x1]
+y2 = [near_sensor(i) for i in x2]
+y3 = [near_sensor(i) for i in x3]
+y4 = [near_sensor(i) for i in x4]
+y5 = [near_sensor(i) for i in x5]
+y6 = [near_sensor(i) for i in x6]
 
+df['action'] = [int(i) for i in df['action']]
+# df['action'] = [2 if x == -1 else x for x in df['action']]
+# df.to_csv("dataset.csv")
 truth = df[['action']].values
-truth = [[int(i)] for i in truth]
+
+
 # truth = df.action.apply(float)
-
-
 train = [(x0,y0), (x1,y1), (x2,y2), (x3,y3), (x4,y4), (x5,y5), (x6,y6)]
-
-print(truth)
-
+print("train shape")
+print(len(train))
+print("truth shape")
+print(truth.shape)
+print(len(df['action']))
 
 tree_net.train(data=train, y=truth, train_sensors=False)
 print('predicting:')
-#print(tree_net.predict([2.2,0,0,0,0,0,0]))
+print(tree_net.predict([[2.2],[0],[0],[0],[0],[0],[0]]))
 
-from sklearn.metrics import accuracy_score
-#predictions=tree_net.predict_class(test)
+# from sklearn.metrics import accuracy_score
+predictions=tree_net.predict_class(test)
 
-#accuracy_score(sensor_front_data_decision_test['decision'],predictions)
-#tree_net.standardize_data_all([[1.028258,1.028258],[.31,.31]])
+# print(accuracy_score(sensor_front_data_decision_test['decision'],predictions))
+# tree_net.standardize_data_all([[1.028258,1.028258],[.31,.31]])
 
 
 class GameWrapper():
