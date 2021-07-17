@@ -119,10 +119,11 @@ def control():
                     ground_truth_action = 0
                     robot_x, robot_y = robot.forward(robot_rotation, robot_x, robot_y, robot_speed)
                     write = True
+
+
                 # training code here ---------------------------------------------
                 if (write is True) and (signal_array !=[0,0,0,0,0,0,0]) and signal_array != []:
-                    entry = np.array(signal_array)
-                    entry = np.array([entry,ground_truth_action])
+                    entry = np.append(signal_array,ground_truth_action)
                     # df = pd.DataFrame(entry.reshape(-1,len(entry)),columns=columns)
                     # print(df)
                     # df.to_csv("dataset.csv",mode="a",header=False)
@@ -130,6 +131,8 @@ def control():
                         data_writer = csv.writer(data_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
                         data_writer.writerow(entry)
+
+
                 # display --------------------------------------------------------
                 screen.fill((150, 242, 240))
                 draw_obstacles(screen)
