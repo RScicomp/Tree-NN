@@ -108,7 +108,7 @@ def control():
 
                 # selecting an action --------------------------------------------
                 if event.key == pygame.K_LEFT:
-                    ground_truth_action = -1
+                    ground_truth_action = 2
                     robot_rotation += 3
                     write = True
                 elif event.key == pygame.K_RIGHT:
@@ -252,18 +252,27 @@ while running:
         robot_y = 400
     print(signal_array)
 
-    # TODO: neural network tree goes here, pass signal array to the network
-    # in this section, the robot makes some type of decision (ex. robot_rotation += 90 and move forward)
-    # after making this decision, the change is applied to the global variables
-    # the changed position/rotation will be drawn in the next iteration
 
-    # updating x y value of robot to make it move
+    # TODO: neural network tree goes here, pass signal array to the network -----------
 
+    from nn_tree_copy import tree_net
+    if signal_array == [0,0,0,0,0,0,0]:
+        robot_x, robot_y = robot.forward(robot_rotation, robot_x, robot_y, robot_speed)
 
+    else:
+        signal_array = [[float(i)] for i in signal_array]
+        decision = tree_net.predict_class(signal_array)
 
-    robot_x, robot_y = robot.forward(robot_rotation, robot_x, robot_y, robot_speed)
+        decision = decision[0]
 
+        if decision == 0:
+            robot_x, robot_y = robot.forward(robot_rotation, robot_x, robot_y, robot_speed)
 
-    # if robot_rotation > -90:
+        if decision == 1:
+            robot_rotation -= 3
+
+        else:
+            robot_rotation +=3
+# if robot_rotation > -90:
     # robot_rotation -= 0.05
     # pygame.display.update()

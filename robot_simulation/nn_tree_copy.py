@@ -1,4 +1,4 @@
-
+import numpy
 import tensorflow as tf
 from tensorflow import keras
 import random
@@ -47,7 +47,7 @@ sensor_front_data_decision
 # wheel_rf_data = generate_sensor_data(evaluation=measure_wheel)
 # wheel_lb_data = generate_sensor_data(evaluation=measure_wheel)
 # wheel_rb_data = generate_sensor_data(evaluation=measure_wheel)
-from keras.utils.np_utils import to_categorical
+# from keras.utils.np_utils import to_categorical
 
 class NeuralNet():
     def __init__(self,x,y,output,name):
@@ -130,6 +130,7 @@ class MainNet(NeuralNet):
 
 
     def train(self):
+        print(self.X.shape,self.y.shape)
         self.model.fit(self.X,self.y,epochs=30,batch_size=32)
 
     # def predict(self,test):
@@ -153,15 +154,14 @@ class TreeNet():
                 model.X=sensor_data[0]
                 model.y=sensor_data[1]
                 model.train()
-            predictions = model.predict(model.X)
+            predictions = model.predict(sensor_data[0])
             all_predictions.append(predictions)
         # all_predictions
         training_data=np.concatenate((all_predictions),axis=1)
-        # print(training_data)
+        print(training_data.shape)
         self.mainnet.X = training_data
         self.mainnet.y = y
         print("Training mainnet...")
-        print(training_data)
         self.mainnet.train()
         # return(training_data)#training_data)
 
@@ -178,6 +178,7 @@ class TreeNet():
                 res.append([sub_x])
             all_data.append(res)
         return(all_data)
+
     # Use predictions of models to train main net
     def predict(self,X):
         all_predictions = []
@@ -201,47 +202,98 @@ class TreeNet():
             all_predictions.append(predictions)
         # all_predictions
         test_data=np.concatenate((all_predictions),axis=1)
-        print(test_data)
+        # print(test_data)
         # print(training_data)
         predictions=self.mainnet.cat_predict(test_data)
         return(predictions)
 
-# infrared_net = InfraredNet(input=sensor_front_data_decision[['x']].values,target = sensor_front_data_decision[['y']].values,output=3,name='front_sensor')
-# infrared_net_2 = InfraredNet(input=sensor_front_data_decision[['x']].values,target = sensor_front_data_decision[['y']].values,output=3,name='side_sensor')
-# # main_net = MainNet(input = predictions,target=sensor_front_data_decision['decision'],output=3,name="main_net")
-# main_net = MainNet(input = predictions,target=sensor_front_data_decision['decision'],output=3,name="main_net")
-infrared_net = InfraredNet(input=None,target = None,output=3,name='front_sensor')
-infrared_net_2 = InfraredNet(input=None,target = None,output=3,name='side_sensor')
 
-# main_net = MainNet(input = predictions,target=sensor_front_data_decision['decision'],output=3,name="main_net")
-main_net = MainNet(input = None,target=None,output=3,name="main_net")
-# infrared_net.train()
-
-sensor_front_data_decision
+# defining training set for infrared nets --------------------------------------------------------------------
+train_x = sensor_front_data_decision[['x']].values
+train_y = sensor_front_data_decision[['y']].values
+# train = []
+# for i in range(7):
+#     train.append((train_x, train_y))
 
 
+# defining each sensor ---------------------------------------------------------------------------------------
+infr_net_l = InfraredNet(input=train_x,target = train_y,output=3,name='left_sensor')
+infr_net_lt = InfraredNet(input=train_x,target = train_y,output=3,name='left_tilt_sensor')
 
-train=[(sensor_front_data_decision[['x']].values,sensor_front_data_decision[['y']].values),(sensor_front_data_decision[['x']].values,sensor_front_data_decision[['y']].values)]
-sensor_front_data_decision_test = generate_decisions(evaluation=near_sensor,turnaway=turn_away)
+infr_net_fl = InfraredNet(input=train_x,target = train_y,output=3,name='front_left_sensor')
+infr_net_fc = InfraredNet(input=train_x,target = train_y,output=3,name='front_center_sensor')
+infr_net_fr = InfraredNet(input=train_x,target = train_y,output=3,name='front_right_sensor')
 
-
-
-test= [sensor_front_data_decision_test[['x']].values,sensor_front_data_decision_test[['x']].values]
-
-
-tree_net = TreeNet([infrared_net,infrared_net_2],mainnet=main_net)
-tree_net.train(data=train,y=sensor_front_data_decision['decision'].values)
-
+infr_net_rt = InfraredNet(input=train_x,target = train_y,output=3,name='right_tilt_sensor')
+infr_net_r = InfraredNet(input=train_x,target = train_y,output=3,name='right_sensor')
 
 
-from sklearn.metrics import accuracy_score
-predictions=tree_net.predict_class(test)
+infrared_net_list = [infr_net_l,infr_net_lt,infr_net_fl,infr_net_fc,infr_net_fr,infr_net_rt,infr_net_r]
+main_net = MainNet(input=None,target=None,output=3,name="main_net")
 
-predictions
 
-accuracy_score(sensor_front_data_decision_test['decision'],predictions)
+for net in infrared_net_list:
+    net.train()
+# -------------------------------------------------------------------------------------------------------------
+# set up tree net, train tree net with manually collected data
+tree_net = TreeNet(infrared_net_list,mainnet=main_net)
 
-tree_net.standardize_data_all([[1.028258,1.028258],[.31,.31]])
+# data reformatting -------------------------------------------------------------------------------------------
+# problem: "[0,0,0,0,0,0,0]" keeps being interpreted as string instead of array
+# either try to convert to right type or change store type
+from ast import literal_eval
+from data_process import get_float_array
+
+df = pd.read_csv("dataset.csv")
+
+x0 = df[['s0']].values
+x1 = df[['s1']].values
+x2 = df[['s2']].values
+x3 = df[['s3']].values
+x4 = df[['s4']].values
+x5 = df[['s5']].values
+x6 = df[['s6']].values
+
+y0 = [near_sensor(i) for i in x0]
+y1 = [near_sensor(i) for i in x1]
+y2 = [near_sensor(i) for i in x2]
+y3 = [near_sensor(i) for i in x3]
+y4 = [near_sensor(i) for i in x4]
+y5 = [near_sensor(i) for i in x5]
+y6 = [near_sensor(i) for i in x6]
+
+df['action'] = [int(i) for i in df['action']]
+
+#df['action'] = [2 if x == -1 else x for x in df['action']]
+# df.to_csv("dataset.csv")
+truth = df[['action']].values
+
+
+# truth = df.action.apply(float)
+train = [(x0,y0), (x1,y1), (x2,y2), (x3,y3), (x4,y4), (x5,y5), (x6,y6)]
+# print("train shape")
+# print(len(train))
+# print("truth shape")
+# print(truth.shape)
+# print(len(df['action']))
+
+tree_net.train(data=train, y=truth, train_sensors=False)
+# d = pd.DataFrame({'s0': [2.2],'s1':[0.0],'s2':[0.0],'s3':[0.0],'s4':[0.0],'s5':[0.0],'s6':[0.0]})
+# #test=[np.array([[2.2]]),np.array([[0]]),np.array([[0]]),np.array([[0]]),np.array([[0]]),np.array([[0]]),np.array([[0]])]
+# test = [d[['s0']].values,d[['s1']].values,d[['s2']].values,
+#         d[['s3']].values,d[['s4']].values,d[['s5']].values,
+#         d[['s6']].values]
+
+test = [[2.2],[0.0],[2.0],[2.0],[2.0],[0.0],[0.0]]
+
+print(tree_net.predict_class(test))
+
+# from sklearn.metrics import accuracy_score
+#predictions=tree_net.predict_class(test)
+
+# print(accuracy_score(sensor_front_data_decision_test['decision'],predictions))
+# tree_net.standardize_data_all([[1.028258,1.028258],[.31,.31]])
+
 
 class GameWrapper():
     def __init__(self,treenet):
@@ -278,13 +330,13 @@ class GameWrapper():
 
 #touch: A measurement of resistance (continious - whiskers bend [0,1])
 #Not touching, touching lightly, Touching a lot
-touch_data_back = [[0.1,0],[0.1,1]]
-touch_data_back = pd.DataFrame(touch_data_back)
-touch_data_back.columns = ['touch','time']
-
-touch_data_front = [[0.1,0],[0.1,1]]
-touch_data_front = pd.DataFrame(touch_data_front)
-touch_data_front.columns = ['touch','time']
+# touch_data_back = [[0.1,0],[0.1,1]]
+# touch_data_back = pd.DataFrame(touch_data_back)
+# touch_data_back.columns = ['touch','time']
+#
+# touch_data_front = [[0.1,0],[0.1,1]]
+# touch_data_front = pd.DataFrame(touch_data_front)
+# touch_data_front.columns = ['touch','time']
 
 """### Multiple input Model"""
 
@@ -293,21 +345,21 @@ touch_data_front.columns = ['touch','time']
 #Come up with a data table and send it into the robot to produce actions.
 
 
-input_front_sensor = keras.layers.Input(shape=sensor_data_front.shape[1], name="front_sensor_input")
-input_front_touch = keras.layers.Input(shape=touch_data_front.shape[1], name="front_touch_sensor_input")
-input_back_sensor = keras.layers.Input(shape=sensor_data_front.shape[1], name="back_sensor_input")
-input_back_touch = keras.layers.Input(shape=sensor_data_front.shape[1], name="back_touch_sensor_input")
-
-hidden1 = keras.layers.Dense(30, activation="relu")(input_front_sensor)
-hidden2 = keras.layers.Dense(1, activation="relu")(hidden1)
-hidden3 = keras.layers.Dense(30, activation="relu")(input_back_sensor)
-hidden4 = keras.layers.Dense(1, activation="relu")(hidden3)
-concat = keras.layers.concatenate([hidden2,hidden4])
-hidden5 = keras.layers.Dense(30,activation="relu")(concat)
-
-output = keras.layers.Dense(5, name="output")(hidden5)
-
-
-model = keras.models.Model(inputs=[input_front_sensor,input_back_sensor], outputs=[output])
-
-keras.utils.plot_model(model, "test.png", show_shapes=True)
+# input_front_sensor = keras.layers.Input(shape=sensor_data_front.shape[1], name="front_sensor_input")
+# input_front_touch = keras.layers.Input(shape=touch_data_front.shape[1], name="front_touch_sensor_input")
+# input_back_sensor = keras.layers.Input(shape=sensor_data_front.shape[1], name="back_sensor_input")
+# input_back_touch = keras.layers.Input(shape=sensor_data_front.shape[1], name="back_touch_sensor_input")
+#
+# hidden1 = keras.layers.Dense(30, activation="relu")(input_front_sensor)
+# hidden2 = keras.layers.Dense(1, activation="relu")(hidden1)
+# hidden3 = keras.layers.Dense(30, activation="relu")(input_back_sensor)
+# hidden4 = keras.layers.Dense(1, activation="relu")(hidden3)
+# concat = keras.layers.concatenate([hidden2,hidden4])
+# hidden5 = keras.layers.Dense(30,activation="relu")(concat)
+#
+# output = keras.layers.Dense(5, name="output")(hidden5)
+#
+#
+# model = keras.models.Model(inputs=[input_front_sensor,input_back_sensor], outputs=[output])
+#
+# keras.utils.plot_model(model, "test.png", show_shapes=True)
