@@ -67,9 +67,12 @@ class NeuralNet():
         )
 
         self.model=model
+
     def train(self,**args):
         pass
 
+    def load_model(self,model):
+        self.model = model
 
     def predict(self,test,**args):
         predictions=self.model.predict(test)
@@ -79,6 +82,8 @@ class NeuralNet():
         predictions=self.model.predict_classes(test)
         return(predictions)
 
+    def save(self,path):
+        self.model.save(path,overwrite=True)
 
 class InfraredNet(NeuralNet):
     def __init__(self,input,target,output,name):
@@ -104,10 +109,11 @@ class InfraredNet(NeuralNet):
         #               metrics=['accuracy'])
         self.model=model
 
-
     def train(self):
         self.model.fit(self.X,self.y,epochs=30,batch_size=32)
 
+    def mini_train(self,epochs):
+        self.model.fit(self.X,self.y,epochs=epochs)
     # def predict(self,test):
     #   self.model.predict(test)
 
@@ -128,10 +134,11 @@ class MainNet(NeuralNet):
 
         self.model=model
 
-
     def train(self):
-        print(self.X.shape,self.y.shape)
-        self.model.fit(self.X,self.y,epochs=30,batch_size=32)
+        #print(self.X.shape,self.y.shape)
+        print("x: ",self.X)
+        print("y: ",self.y)
+        self.model.fit(self.X,self.y,epochs=epochs,batch_size=32,shuffle=True)
 
     # def predict(self,test):
     #   self.model.predict(self,test)
@@ -145,7 +152,7 @@ class TreeNet():
 
 
     # Train all models
-    def train(self,data,y,train_sensors=True):
+    def train(self,data,y,train_sensors=True,epochs=50):
         all_predictions = []
 
         for model,sensor_data in zip(self.sensors,data):
@@ -162,7 +169,10 @@ class TreeNet():
         self.mainnet.X = training_data
         self.mainnet.y = y
         print("Training mainnet...")
-        self.mainnet.train()
+        if epochs == 50:
+            self.mainnet.train()
+        else:
+            self.mainnet.mini_train(epochs=epochs)
         # return(training_data)#training_data)
 
 
@@ -209,84 +219,64 @@ class TreeNet():
 
 
 # defining training set for infrared nets --------------------------------------------------------------------
-train_x = sensor_front_data_decision[['x']].values
-train_y = sensor_front_data_decision[['y']].values
-# train = []
-# for i in range(7):
-#     train.append((train_x, train_y))
+# train_x = sensor_front_data_decision[['x']].values
+# train_y = sensor_front_data_decision[['y']].values
+# # train = []
+# # for i in range(7):
+# #     train.append((train_x, train_y))
+#
+#
+# # defining each sensor ---------------------------------------------------------------------------------------
+# infr_net = InfraredNet(input=train_x,target = train_y,output=3,name='infrared')
+# infr_net.train()
+#
+# infrared_net_list = [infr_net,infr_net,infr_net,infr_net,infr_net,infr_net,infr_net]
+# main_net = MainNet(input=None,target=None,output=3,name="main_net")
+#
+#
+# # for net in infrared_net_list:
+# #     net.train()
+# # -------------------------------------------------------------------------------------------------------------
+# # set up tree net, train tree net with manually collected data
+# tree_net = TreeNet(infrared_net_list,mainnet=main_net)
+#
+# # data reformatting -------------------------------------------------------------------------------------------
+# # problem: "[0,0,0,0,0,0,0]" keeps being interpreted as string instead of array
+# # either try to convert to right type or change store type
+# from ast import literal_eval
+# from data_process import get_float_array
+#
+# df = pd.read_csv("dataset.csv")
+#
+# x0 = df[['s0']].values
+# x1 = df[['s1']].values
+# x2 = df[['s2']].values
+# x3 = df[['s3']].values
+# x4 = df[['s4']].values
+# x5 = df[['s5']].values
+# x6 = df[['s6']].values
+#
+# y0 = [near_sensor(i) for i in x0]
+# y1 = [near_sensor(i) for i in x1]
+# y2 = [near_sensor(i) for i in x2]
+# y3 = [near_sensor(i) for i in x3]
+# y4 = [near_sensor(i) for i in x4]
+# y5 = [near_sensor(i) for i in x5]
+# y6 = [near_sensor(i) for i in x6]
+#
+# df['action'] = [int(i) for i in df['action']]
+#
+# truth = df[['action']].values
+# train = [(x0,y0), (x1,y1), (x2,y2), (x3,y3), (x4,y4), (x5,y5), (x6,y6)]
+#
+#
+# tree_net.train(data=train, y=truth, train_sensors=False)
+#
+#
+# infr_net.save('infr_net')
+# main_net.save('main_net')
 
-
-# defining each sensor ---------------------------------------------------------------------------------------
-infr_net_l = InfraredNet(input=train_x,target = train_y,output=3,name='left_sensor')
-infr_net_lt = InfraredNet(input=train_x,target = train_y,output=3,name='left_tilt_sensor')
-
-infr_net_fl = InfraredNet(input=train_x,target = train_y,output=3,name='front_left_sensor')
-infr_net_fc = InfraredNet(input=train_x,target = train_y,output=3,name='front_center_sensor')
-infr_net_fr = InfraredNet(input=train_x,target = train_y,output=3,name='front_right_sensor')
-
-infr_net_rt = InfraredNet(input=train_x,target = train_y,output=3,name='right_tilt_sensor')
-infr_net_r = InfraredNet(input=train_x,target = train_y,output=3,name='right_sensor')
-
-
-infrared_net_list = [infr_net_l,infr_net_lt,infr_net_fl,infr_net_fc,infr_net_fr,infr_net_rt,infr_net_r]
-main_net = MainNet(input=None,target=None,output=3,name="main_net")
-
-
-for net in infrared_net_list:
-    net.train()
-# -------------------------------------------------------------------------------------------------------------
-# set up tree net, train tree net with manually collected data
-tree_net = TreeNet(infrared_net_list,mainnet=main_net)
-
-# data reformatting -------------------------------------------------------------------------------------------
-# problem: "[0,0,0,0,0,0,0]" keeps being interpreted as string instead of array
-# either try to convert to right type or change store type
-from ast import literal_eval
-from data_process import get_float_array
-
-df = pd.read_csv("dataset.csv")
-
-x0 = df[['s0']].values
-x1 = df[['s1']].values
-x2 = df[['s2']].values
-x3 = df[['s3']].values
-x4 = df[['s4']].values
-x5 = df[['s5']].values
-x6 = df[['s6']].values
-
-y0 = [near_sensor(i) for i in x0]
-y1 = [near_sensor(i) for i in x1]
-y2 = [near_sensor(i) for i in x2]
-y3 = [near_sensor(i) for i in x3]
-y4 = [near_sensor(i) for i in x4]
-y5 = [near_sensor(i) for i in x5]
-y6 = [near_sensor(i) for i in x6]
-
-df['action'] = [int(i) for i in df['action']]
-
-#df['action'] = [2 if x == -1 else x for x in df['action']]
-# df.to_csv("dataset.csv")
-truth = df[['action']].values
-
-
-# truth = df.action.apply(float)
-train = [(x0,y0), (x1,y1), (x2,y2), (x3,y3), (x4,y4), (x5,y5), (x6,y6)]
-# print("train shape")
-# print(len(train))
-# print("truth shape")
-# print(truth.shape)
-# print(len(df['action']))
-
-tree_net.train(data=train, y=truth, train_sensors=False)
-# d = pd.DataFrame({'s0': [2.2],'s1':[0.0],'s2':[0.0],'s3':[0.0],'s4':[0.0],'s5':[0.0],'s6':[0.0]})
-# #test=[np.array([[2.2]]),np.array([[0]]),np.array([[0]]),np.array([[0]]),np.array([[0]]),np.array([[0]]),np.array([[0]])]
-# test = [d[['s0']].values,d[['s1']].values,d[['s2']].values,
-#         d[['s3']].values,d[['s4']].values,d[['s5']].values,
-#         d[['s6']].values]
-
-test = [[2.2],[0.0],[2.0],[2.0],[2.0],[0.0],[0.0]]
-
-print(tree_net.predict_class(test))
+# ----------------------------------------------------------------------------------------
 
 # from sklearn.metrics import accuracy_score
 #predictions=tree_net.predict_class(test)

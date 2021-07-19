@@ -1,9 +1,10 @@
+import keras.models
 import numpy as np
 import os
 
 import pandas as pd
 import pygame
-from obstacles import draw_obstacles, obst
+from obstacles import draw_obstacles, obst, walls
 import robot
 import lines
 import math
@@ -127,6 +128,18 @@ def control():
                     # df = pd.DataFrame(entry.reshape(-1,len(entry)),columns=columns)
                     # print(df)
                     # df.to_csv("dataset.csv",mode="a",header=False)
+                    from nn_tree_copy import near_sensor
+
+                    print(signal_array)
+                    try:
+                        train = [([[float(i)]],np.array([near_sensor(i)])) for i in signal_array]
+                    except TypeError:
+                        train = [([[float(i[0])]],np.array([near_sensor(i[0])])) for i in signal_array]
+
+                    #
+                    # print(train)
+                    tree_net.train(data=train,y=np.array([ground_truth_action]),train_sensors=False,epochs=2)
+
                     with open('dataset.csv', 'a') as data_file:
                         data_writer = csv.writer(data_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
@@ -139,7 +152,7 @@ def control():
                 start, end = draw_robot(robot_rotation, robot_x, robot_y, robot_image, screen, robot_sensor_range)
                 signal_array = robot.sensor_detection_efficient(robot_rotation, robot_x, robot_y, screen, robot_sensor_range)
                 pygame.display.flip()
-                print(signal_array)
+                # print(signal_array)
 
 
 def paused(screen):
@@ -184,6 +197,20 @@ def draw_robot(rotation, x, y, robot_image, screen, sensor_range):
     return (x, y), (x_end, y_end)
 
 
+# loading model components
+from nn_tree_copy import TreeNet, InfraredNet, MainNet
+
+inf = keras.models.load_model('infr_net')
+infr_net = InfraredNet(None,None,3,"infr")
+infr_net.load_model(inf)
+
+infr_net_list = [infr_net,infr_net,infr_net,infr_net,infr_net,infr_net,infr_net]
+
+main = keras.models.load_model('main_net')
+main_net = InfraredNet(None,None,3,"main")
+main_net.load_model(main)
+
+tree_net = TreeNet(sensors=infr_net_list,mainnet=main_net)
 
 # game loop
 running = True
@@ -200,12 +227,12 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-        # controlling pause -------------------
+        # controlling pause ------------------------
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_p:
                 paused(screen)
 
-            # controlling speed
+            # controlling speed ---------------------
             if event.key == pygame.K_UP:
                 robot_speed += 3
 
@@ -213,7 +240,8 @@ while running:
                 robot_speed -= 3
                 if robot_speed < 0.5:
                     robot_speed = 0.5
-        # to enable/disable training ----------
+
+        # to enable/disable training ------------------
             if event.key == pygame.K_t:
                 training = not training
 
@@ -255,12 +283,17 @@ while running:
 
     # TODO: neural network tree goes here, pass signal array to the network -----------
 
-    from nn_tree_copy import tree_net
+
     if signal_array == [0,0,0,0,0,0,0]:
         robot_x, robot_y = robot.forward(robot_rotation, robot_x, robot_y, robot_speed)
 
     else:
-        signal_array = [[float(i)] for i in signal_array]
+        try:
+            signal_array = [[float(i)] for i in signal_array]
+        except TypeError or IndexError:
+            robot_x = 500
+            robot_y == 400
+
         decision = tree_net.predict_class(signal_array)
 
         decision = decision[0]
@@ -268,11 +301,12 @@ while running:
         if decision == 0:
             robot_x, robot_y = robot.forward(robot_rotation, robot_x, robot_y, robot_speed)
 
-        if decision == 1:
+        elif decision == 1:
             robot_rotation -= 3
 
         else:
             robot_rotation +=3
+
 # if robot_rotation > -90:
     # robot_rotation -= 0.05
     # pygame.display.update()
