@@ -40,8 +40,6 @@ def sensor_detection(start, end):
 
         # check for intersection
         # finds point with minimum distance
-        min_dist = 0
-        point_list = ()
         point = lines.calculateIntersectPoint(start, end, obs_start, obs_end)
         if point is not None:
             print("hit point", point)
@@ -146,3 +144,32 @@ def sensor_detection_efficient(abs_rotation, x, y, surface, rng):
 
     print(signal_array)
     return signal_array
+
+
+# collision sensor
+def touch_detection(abs_rotation,x,y,surface):
+    s1 = step_touch(abs_rotation,x,y,surface)
+    s2 = step_touch(abs_rotation+45,x,y,surface)
+    s3 = step_touch(abs_rotation+90,x,y,surface)
+    s4 = step_touch(abs_rotation+135,x,y,surface)
+    s5 = step_touch(abs_rotation+180,x,y,surface)
+    s6 = step_touch(abs_rotation-45,x,y,surface)
+    s7 = step_touch(abs_rotation-90,x,y,surface)
+    s8 = step_touch(abs_rotation-135,x,y,surface)
+
+    return (s1,s2,s3,s4,s5,s6,s7,s8)
+
+
+def step_touch(abs_rotation,x,y,surface):
+    y_end = int(y - 12* math.cos(math.radians(abs_rotation)))
+    x_end = int(x - 12* math.sin(math.radians(abs_rotation)))
+    color = surface.get_at((x_end,y_end))
+
+    if color != (150, 242, 240):
+        #pygame.draw.line(surface,(24, 245, 24),(x_end,y_end),(x_end,y_end),8)
+        pygame.draw.circle(surface,(24,245,24),(x_end,y_end),2,2)
+        return True
+    else:
+        #pygame.draw.line(surface,(0,0,0),(x_end,y_end),(x_end,y_end),8)
+        pygame.draw.circle(surface,(0,0,0),(x_end,y_end),2,2)
+        return False

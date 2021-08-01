@@ -1,7 +1,7 @@
 import keras.models
 import numpy as np
 import os
-
+import csv
 import pandas as pd
 import pygame
 from obstacles import draw_obstacles, obst, walls
@@ -9,6 +9,7 @@ import robot
 import lines
 import math
 global color
+
 # training variable - if training, we are controlling the robot
 training = False
 
@@ -48,9 +49,7 @@ new_point_1 = ()
 new_point_2 = ()
 # ------------------------------
 
-import csv
-
-# special loop made for human-NN training
+# special loop made for human-NN training ----------------------------------------
 def control():
     # initialize global variables
     global signal_array
@@ -69,6 +68,7 @@ def control():
 
     columns = ["sensor_signals","action"]
 
+    from nn_tree_copy import near_sensor
 
     # training loop
     while control:
@@ -121,14 +121,9 @@ def control():
                     robot_x, robot_y = robot.forward(robot_rotation, robot_x, robot_y, robot_speed)
                     write = True
 
-
-                # training code here ---------------------------------------------
+                # accumulative training and data collection ---------------------------------------------
                 if (write is True) and (signal_array !=[0,0,0,0,0,0,0]) and signal_array != []:
                     entry = np.append(signal_array,ground_truth_action)
-                    # df = pd.DataFrame(entry.reshape(-1,len(entry)),columns=columns)
-                    # print(df)
-                    # df.to_csv("dataset.csv",mode="a",header=False)
-                    from nn_tree_copy import near_sensor
 
                     print(signal_array)
                     try:
@@ -136,17 +131,13 @@ def control():
                     except TypeError:
                         train = [([[float(i[0])]],np.array([near_sensor(i[0])])) for i in signal_array]
 
-                    #
-                    # print(train)
                     tree_net.train(data=train,y=np.array([ground_truth_action]),train_sensors=False,epochs=2)
 
                     with open('dataset.csv', 'a') as data_file:
                         data_writer = csv.writer(data_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-
                         data_writer.writerow(entry)
 
-
-                # display --------------------------------------------------------
+                # display -------------------------------------------------------------------------------
                 screen.fill((150, 242, 240))
                 draw_obstacles(screen)
                 start, end = draw_robot(robot_rotation, robot_x, robot_y, robot_image, screen, robot_sensor_range)
@@ -155,6 +146,7 @@ def control():
                 # print(signal_array)
 
 
+# pause function ------------------------------------------------------------------
 def paused(screen):
     pause = True
     drawing_pause = False
@@ -180,9 +172,9 @@ def paused(screen):
                     drawing_pause = False
                     draw_obstacles(screen)
                     pygame.display.flip()
-            # ----------------------------------------
 
 
+# rendering robot image ------------------------------------------------------------------
 def draw_robot(rotation, x, y, robot_image, screen, sensor_range):
     robot_image = pygame.transform.rotate(robot_image, rotation)
     rect = robot_image.get_rect()
@@ -194,10 +186,11 @@ def draw_robot(rotation, x, y, robot_image, screen, sensor_range):
     # find where the sensor end point is
     # return robot position and end point
     x_end, y_end = robot.get_robot_end_points(rotation, x, y, sensor_range)
+
     return (x, y), (x_end, y_end)
 
 
-# loading model components
+# loading model components ----------------------------------------------------------------
 from nn_tree_copy import TreeNet, InfraredNet, MainNet
 
 inf = keras.models.load_model('infr_net')
@@ -212,7 +205,7 @@ main_net.load_model(main)
 
 tree_net = TreeNet(sensors=infr_net_list,mainnet=main_net)
 
-# game loop
+# game loop --------------------------------------------------------------------------------
 running = True
 while running:
     clock.tick(60)
@@ -222,17 +215,17 @@ while running:
     # next action place holder
     cmd = 0
 
-    # controlling events --------------------------
+    # controlling events -----------------------------
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
-        # controlling pause ------------------------
+        # controlling pause --------------------------
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_p:
                 paused(screen)
 
-            # controlling speed ---------------------
+            # controlling speed ----------------------
             if event.key == pygame.K_UP:
                 robot_speed += 3
 
@@ -245,8 +238,7 @@ while running:
             if event.key == pygame.K_t:
                 training = not training
 
-
-        # controlling drawing new obstacles
+        # controlling drawing new obstacles -----------
         if event.type == pygame.MOUSEBUTTONDOWN:
             if drawing is False:
                 new_point_1 = pygame.mouse.get_pos()
@@ -255,35 +247,31 @@ while running:
                 new_point_2 = pygame.mouse.get_pos()
                 obst.append((new_point_1,new_point_2))
                 drawing = False
-        # ------------------------------------------
 
-    # training functions ---------------------------
+    # training functions ----------------------------------------------------------------------
     if training:
         cmd = control()
 
-    # painting background---------------------------
+    # painting background ---------------------------------------------------------------------
     screen.fill((150, 242, 240))
     # drawing obstacles
     draw_obstacles(screen)
 
-    # rendering robot
+    # rendering robot -------------------------------------------------------------------------
     # getting start and end points of the robot and its sensor
     start, end = draw_robot(robot_rotation, robot_x, robot_y, robot_image, screen, robot_sensor_range)
 
-    # if sensor detects anything, turn left
+    # gather information from sensors
     try:
         signal_array = robot.sensor_detection_efficient(robot_rotation, robot_x, robot_y, screen, robot_sensor_range)
-
+        touch_array = robot.touch_detection(robot_rotation,robot_x,robot_y,screen)
     # if robot goes out of bound, return it to middle
     except IndexError:
         robot_x = 500
         robot_y = 400
     print(signal_array)
 
-
-    # TODO: neural network tree goes here, pass signal array to the network -----------
-
-
+    # TODO: neural network tree goes here, pass signal array to the network ------------------
     if signal_array == [0,0,0,0,0,0,0]:
         robot_x, robot_y = robot.forward(robot_rotation, robot_x, robot_y, robot_speed)
 
@@ -294,9 +282,7 @@ while running:
             robot_x = 500
             robot_y == 400
 
-        decision = tree_net.predict_class(signal_array)
-
-        decision = decision[0]
+        decision = tree_net.predict_class(signal_array)[0]
 
         if decision == 0:
             robot_x, robot_y = robot.forward(robot_rotation, robot_x, robot_y, robot_speed)
@@ -305,7 +291,7 @@ while running:
             robot_rotation -= 3
 
         else:
-            robot_rotation +=3
+            robot_rotation += 3
 
 # if robot_rotation > -90:
     # robot_rotation -= 0.05
