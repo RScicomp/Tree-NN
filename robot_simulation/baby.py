@@ -18,7 +18,7 @@ class Baby():
     
     def emit_shriek(self,screen,circle_radius=12):
         
-        colour = (0,0,255)
+        colour = (0,9,255)
         circle_x_y = (self.x,self.y)
         border_width = 2
         circle_radius = circle_radius % 1000
