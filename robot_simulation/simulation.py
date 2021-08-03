@@ -8,6 +8,7 @@ from obstacles import draw_obstacles, obst, walls
 import robot
 import lines
 import math
+from baby import Baby
 global color
 
 # training variable - if training, we are controlling the robot
@@ -207,6 +208,8 @@ tree_net = TreeNet(sensors=infr_net_list,mainnet=main_net)
 
 # game loop --------------------------------------------------------------------------------
 running = True
+baby = Baby('images/baby.png')
+i= 2
 while running:
     clock.tick(60)
     # displays the content
@@ -260,7 +263,9 @@ while running:
     # rendering robot -------------------------------------------------------------------------
     # getting start and end points of the robot and its sensor
     start, end = draw_robot(robot_rotation, robot_x, robot_y, robot_image, screen, robot_sensor_range)
-
+    # rendering baby --------------------------------------------------------------------------
+    baby.draw_baby(50,50,screen)
+    baby.emit_shriek(screen,i+1)
     # gather information from sensors
     try:
         signal_array = robot.sensor_detection_efficient(robot_rotation, robot_x, robot_y, screen, robot_sensor_range)
@@ -292,7 +297,7 @@ while running:
 
         else:
             robot_rotation += 3
-
+    i= i + 1
 # if robot_rotation > -90:
     # robot_rotation -= 0.05
     # pygame.display.update()
