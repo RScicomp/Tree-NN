@@ -4,7 +4,7 @@ class Baby():
 
     def __init__(self,image):
         self.image = image
-    
+        self.shriek_radius = 0
     def draw_baby(self, x:int , y: int, screen):
         baby_image = pygame.image.load(self.image)
         baby_image = pygame.transform.scale(baby_image, (100, 100))
@@ -16,11 +16,13 @@ class Baby():
         self.x = x 
         self.y = y
     
-    def emit_shriek(self,screen,circle_radius=12):
+    def emit_shriek(self,screen,circle_radius=1):
         
         colour = (0,9,255)
         circle_x_y = (self.x,self.y)
         border_width = 2
-        circle_radius = circle_radius % 1000
-        pygame.draw.circle(screen, colour,circle_x_y,circle_radius,border_width)
+        # circle_radius = circle_radius % 1000
+        self.shriek_radius = self.shriek_radius+circle_radius % 1000
+        pygame.draw.circle(screen, colour,circle_x_y,self.shriek_radius,border_width)
     
+baby = Baby('images/baby.png')

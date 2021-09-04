@@ -5,6 +5,7 @@ import csv
 import pandas as pd
 import pygame
 from obstacles import draw_obstacles, obst, walls
+from baby import baby
 import robot
 import lines
 import math
@@ -134,7 +135,7 @@ def control():
 
                     tree_net.train(data=train,y=np.array([ground_truth_action]),train_sensors=False,epochs=2)
 
-                    with open('dataset.csv', 'a') as data_file:
+                    with open('dataset_touch.csv', 'a') as data_file:
                         data_writer = csv.writer(data_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                         data_writer.writerow(entry)
 
@@ -142,6 +143,17 @@ def control():
                 screen.fill((150, 242, 240))
                 draw_obstacles(screen)
                 start, end = draw_robot(robot_rotation, robot_x, robot_y, robot_image, screen, robot_sensor_range)
+                baby.draw_baby(50,50,screen)
+                baby.emit_shriek(screen,2)
+                try:
+                    signal_array = robot.sensor_detection_efficient(robot_rotation, robot_x, robot_y, screen, robot_sensor_range)
+                    touch_array = robot.touch_detection(robot_rotation,robot_x,robot_y,screen)
+                # if robot goes out of bound, return it to middle
+                except IndexError:
+                    robot_x = 500
+                    robot_y = 400
+
+                print(signal_array)
                 signal_array = robot.sensor_detection_efficient(robot_rotation, robot_x, robot_y, screen, robot_sensor_range)
                 pygame.display.flip()
                 # print(signal_array)
@@ -208,7 +220,6 @@ tree_net = TreeNet(sensors=infr_net_list,mainnet=main_net)
 
 # game loop --------------------------------------------------------------------------------
 running = True
-baby = Baby('images/baby.png')
 i= 2
 while running:
     clock.tick(60)
@@ -265,7 +276,7 @@ while running:
     start, end = draw_robot(robot_rotation, robot_x, robot_y, robot_image, screen, robot_sensor_range)
     # rendering baby --------------------------------------------------------------------------
     baby.draw_baby(50,50,screen)
-    baby.emit_shriek(screen,i+1)
+    baby.emit_shriek(screen,2)
     # gather information from sensors
     try:
         signal_array = robot.sensor_detection_efficient(robot_rotation, robot_x, robot_y, screen, robot_sensor_range)
